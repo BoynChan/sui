@@ -37,7 +37,7 @@ function MiniNFTLink({ id }: { id: string }) {
         TRUNCATE_MAX_LENGTH,
         TRUNCATE_PREFIX_LENGTH
     );
-    const nftMeta = useGetNFTMeta(id);
+    const { data: nftMeta } = useGetNFTMeta(id);
     return (
         <>
             {nftMeta && (

@@ -29,7 +29,7 @@ export function PassedObject({ id, module }: { id: string; module: string }) {
         TRUNCATE_PREFIX_LENGTH
     );
 
-    const nftMeta = useGetNFTMeta(id);
+    const { data: nftMeta } = useGetNFTMeta(id);
 
     return (
         <div className={st.permissionsContent}>
