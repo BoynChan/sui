@@ -1,7 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { hasPublicTransfer } from '@mysten/sui.js';
+import {
+    hasPublicTransfer,
+    SuiObject,
+    is,
+    getObjectOwner,
+} from '@mysten/sui.js';
 import cl from 'classnames';
 import { useMemo } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
@@ -17,9 +22,8 @@ import {
     useAppSelector,
     useMiddleEllipsis,
     useNFTBasicData,
-    useObjectsState,
+    useGetObject,
 } from '_hooks';
-import { createAccountNftByIdSelector } from '_redux/slices/account';
 import ExternalLink from '_src/ui/app/components/external-link';
 import PageTitle from '_src/ui/app/shared/PageTitle';
 
@@ -64,16 +68,21 @@ function NFTDetailsPage() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const nftId = searchParams.get('objectId');
-    const nftSelector = useMemo(
-        () => createAccountNftByIdSelector(nftId || ''),
-        [nftId]
-    );
-    const selectedNft = useAppSelector(nftSelector);
+    const accountAddress = useAppSelector(({ account }) => account.address);
+
+    const { data: objectData, isLoading } = useGetObject(nftId!);
+    const selectedNft = useMemo(() => {
+        if (!is(objectData?.details, SuiObject) || !objectData) return null;
+        const owner = getObjectOwner(objectData) as { AddressOwner: string };
+        return owner.AddressOwner === accountAddress
+            ? objectData.details
+            : null;
+    }, [accountAddress, objectData]);
+
     const isTransferable = !!selectedNft && hasPublicTransfer(selectedNft);
     const shortAddress = useMiddleEllipsis(nftId);
     const { nftFields, fileExtensionType, filePath } =
         useNFTBasicData(selectedNft);
-    const { loading } = useObjectsState();
 
     // Extract either the attributes, or use the top-level NFT fields:
     const metaFields =
@@ -94,10 +103,10 @@ function NFTDetailsPage() {
     return (
         <div
             className={cl('flex flex-col flex-nowrap flex-1 gap-5', {
-                'items-center': loading,
+                'items-center': isLoading,
             })}
         >
-            <Loading loading={loading}>
+            <Loading loading={isLoading}>
                 {selectedNft ? (
                     <>
                         <PageTitle back="/nfts" />

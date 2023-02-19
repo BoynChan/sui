@@ -10,7 +10,7 @@ import { useGetNFTMeta, useMiddleEllipsis, useFileExtensionType } from '_hooks';
 
 import type { VariantProps } from 'class-variance-authority';
 
-const nftDisplayCardStyles = cva('flex flex-nowrap items-center', {
+const nftDisplayCardStyles = cva('flex flex-nowrap items-center h-full', {
     variants: {
         animateHover: {
             true: 'group',
@@ -25,6 +25,8 @@ const nftDisplayCardStyles = cva('flex flex-nowrap items-center', {
     },
 });
 
+const OBJ_TYPE_MAX_LENGTH = 20;
+const OBJ_TYPE_MAX_PREFIX_LENGTH = 3;
 export interface NFTsProps extends VariantProps<typeof nftDisplayCardStyles> {
     objectId: string;
     showlabel?: boolean;
@@ -41,15 +43,20 @@ export function NFTDisplayCard({
     borderRadius = 'md',
 }: NFTsProps) {
     const { data: nftMeta, isLoading } = useGetNFTMeta(objectId);
-    const nftTitle = nftMeta?.name || objectId;
-    const truncateTitle = useMiddleEllipsis(nftTitle);
+    const truncateObjectId = useMiddleEllipsis(objectId);
+    const nftName = nftMeta?.name;
+    const nftTypeShort = useMiddleEllipsis(
+        nftName!,
+        OBJ_TYPE_MAX_LENGTH,
+        OBJ_TYPE_MAX_PREFIX_LENGTH
+    );
     const nftUrl = nftMeta?.url || null;
     const fileExtensionType = useFileExtensionType(nftUrl!);
     return (
         <div className={nftDisplayCardStyles({ animateHover, wideView })}>
             <Loading loading={isLoading}>
                 <NftImage
-                    name={nftUrl}
+                    name={nftName!}
                     src={nftUrl}
                     animateHover={true}
                     showLabel={!wideView}
@@ -60,7 +67,7 @@ export function NFTDisplayCard({
                 {wideView ? (
                     <div className="flex flex-col gap-1 flex-1 min-w-0">
                         <div className="capitalize text-gray-100 truncate font-semibold text-base ws-nowrap">
-                            {nftMeta?.name}
+                            {nftName || truncateObjectId}
                         </div>
                         <div className="text-gray-75 text-body font-medium">
                             {nftMeta?.url ? (
@@ -80,7 +87,7 @@ export function NFTDisplayCard({
                                 'group-hover:text-black duration-200 ease-ease-in-out-cubic'
                         )}
                     >
-                        {truncateTitle}
+                        {nftTypeShort || truncateObjectId}
                     </div>
                 ) : null}
             </Loading>
