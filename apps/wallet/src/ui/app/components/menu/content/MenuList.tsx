@@ -123,6 +123,8 @@ function MenuList() {
                     href={ToS_LINK}
                     text="Terms of service"
                     after={<ArrowUpRight12 />}
+                    color="steelDark"
+                    weight="semibold"
                 />
                 <Text variant="bodySmall" weight="medium" color="steel">
                     Wallet Version v{version}
