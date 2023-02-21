@@ -150,6 +150,12 @@ pub trait RpcReadApi {
         digest: TransactionDigest,
     ) -> RpcResult<SuiTransactionResponse>;
 
+    #[method(name = "getTransactionsBatch")]
+    async fn get_transactions_batch(
+        &self,
+        digests: Vec<TransactionDigest>,
+    ) -> RpcResult<Vec<SuiTransactionResponse>>;
+
     /// Return the authority public keys that commits to the authority signature of the transaction.
     #[method(name = "getTransactionAuthSigners")]
     async fn get_transaction_auth_signers(
