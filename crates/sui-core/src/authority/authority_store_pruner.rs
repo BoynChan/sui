@@ -3,6 +3,7 @@
 
 use crate::checkpoints::CheckpointStore;
 use mysten_metrics::monitored_scope;
+use rand::distributions::{Distribution, Uniform};
 use std::cmp::max;
 use std::collections::HashMap;
 use std::{sync::Arc, time::Duration};
@@ -18,6 +19,7 @@ use tokio::{
     sync::oneshot::{self, Sender},
     time::{self, Instant},
 };
+use tracing::debug;
 use tracing::log::{error, info};
 use typed_store::rocks::DBMap;
 use typed_store::Map;
@@ -199,15 +201,18 @@ impl AuthorityStorePruner {
         num_versions_to_retain: u64,
         pruning_timeperiod: Duration,
         pruning_initial_delay: Duration,
-        num_epochs_to_retain: u64,
+        mut num_epochs_to_retain: u64,
         epoch_duration_ms: u64,
         perpetual_db: Arc<AuthorityPerpetualTables>,
         checkpoint_store: Arc<CheckpointStore>,
     ) -> Sender<()> {
         let (sender, mut recv) = tokio::sync::oneshot::channel();
-        info!(
-            "Starting object pruning service with num_versions_to_retain={num_versions_to_retain}"
-        );
+        let mut rng = rand::thread_rng();
+        if Uniform::from(0..2).sample(&mut rng) == 0 {
+            num_epochs_to_retain = 1;
+        }
+
+        debug!("Starting object pruning service with num_epochs_to_retain={num_epochs_to_retain}");
         let mut prune_interval =
             tokio::time::interval_at(Instant::now() + pruning_initial_delay, pruning_timeperiod);
         prune_interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
@@ -234,7 +239,7 @@ impl AuthorityStorePruner {
                     },
                     _ = live_prune_interval.tick(), if num_epochs_to_retain != u64::MAX => {
                         match Self::process_checkpoints(&perpetual_db, &checkpoint_store, num_epochs_to_retain) {
-                            Ok(()) => info!("Pruned checkpoints"),
+                            Ok(()) => debug!("Pruned checkpoints"),
                             Err(err) => error!("Failed to prune objects: {:?}", err),
                         }
                     },
