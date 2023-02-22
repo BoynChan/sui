@@ -13,13 +13,19 @@ use telemetry_subscribers::FilterHandle;
 use tracing::info;
 
 const LOGGING_ROUTE: &str = "/logging";
+const PROTOCOL_VERSION_UPGRADE_ROUTE: &str = "/force-protocol-upgrade";
 
-pub fn start_admin_server(port: u16, filter_handle: FilterHandle) {
+struct AppState {
+    node: Arc<SuiNode>,
+}
+
+pub fn start_admin_server(node: Arc<SuiNode>, port: u16, filter_handle: FilterHandle) {
     let filter = filter_handle.get().unwrap();
 
     let app = Router::new()
         .route(LOGGING_ROUTE, get(get_filter))
         .route(LOGGING_ROUTE, post(set_filter))
+        .route(PROTOCOL_VERSION_UPGRADE_ROUTE, post(force_protocol_upgrade))
         .layer(Extension(filter_handle));
 
     let socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
@@ -56,3 +62,5 @@ async fn set_filter(
         Err(err) => (StatusCode::BAD_REQUEST, err.to_string()),
     }
 }
+
+async fn force_protocol_upgrade() -> (StatusCode, String) {}
