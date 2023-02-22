@@ -9,7 +9,7 @@ use sui_types::gas::SuiCostTable;
 use sui_types::messages::{TransactionKind, VerifiedExecutableTransaction};
 use sui_types::{
     base_types::{SequenceNumber, SuiAddress},
-    error::{SuiError, SuiResult},
+    error::{SuiError, SuiResult, input_error},
     fp_ensure,
     gas::{self, SuiGasStatus},
     messages::{InputObjectKind, InputObjects, SingleTransactionKind, TransactionData},
@@ -96,14 +96,7 @@ pub(crate) async fn check_dev_inspect_input(
         if !object.is_immutable() {
             fp_ensure!(
                 used_objects.insert(object.id().into()),
-                SuiError::InvalidBatchTransaction {
-                    error: format!(
-                        "Mutable object {} cannot appear in more than one single \
-                        transactions in a batch",
-                        object.id()
-                    ),
-                }
-                .into()
+                input_error(TransactionInputObjectsError::MutableObjectUsedMoreThanOnce {object_id: object.id()}).into()
             );
         }
     }
@@ -218,7 +211,6 @@ async fn check_gas(
 
 /// Check all the objects used in the transaction against the database, and ensure
 /// that they are all the correct version and number.
-// Transaction input errors should be aggregated in TransactionInputObjectsErrors
 #[instrument(level = "trace", skip_all)]
 async fn check_objects(
     transaction: &TransactionData,
@@ -238,18 +230,13 @@ async fn check_objects(
         if !object.is_immutable() {
             fp_ensure!(
                 used_objects.insert(object.id().into()),
-                SuiError::TransactionInputObjectsErrors { errors: vec![
-                    SuiError::InvalidBatchTransaction {
-                        error: format!("Mutable object {} cannot appear in more than one single transactions in a batch", object.id()),
-                    }]
-                }
+                input_error(TransactionInputObjectsError::MutableObjectUsedMoreThanOnce {object_id: object.id()})
             );
         }
     }
 
     // Gather all objects and errors.
     let mut all_objects = Vec::with_capacity(input_objects.len());
-    let mut errors = Vec::new();
     let transfer_object_ids: HashSet<_> = transaction
         .kind
         .single_transactions()
@@ -274,22 +261,11 @@ async fn check_objects(
         };
         // Check if the object contents match the type of lock we need for
         // this object.
-        match check_one_object(&owner_address, object_kind, &object) {
-            Ok(()) => all_objects.push((object_kind, object)),
-            Err(e) => {
-                errors.push(e);
-            }
-        }
-    }
-    // If any errors with the locks were detected, we return all errors to give the client
-    // a chance to update the authority if possible.
-    if !errors.is_empty() {
-        return Err(SuiError::TransactionInputObjectsErrors { errors });
+        check_one_object(&owner_address, object_kind, &object)?;
+        all_objects.push((object_kind, object));
     }
     if !transaction.kind.is_genesis_tx() && all_objects.is_empty() {
-        return Err(SuiError::TransactionInputObjectsErrors {
-            errors: vec![SuiError::ObjectInputArityViolation],
-        });
+        return Err(input_error(TransactionInputObjectsError::ObjectInputArityViolation));
     }
 
     Ok(InputObjects::new(all_objects))

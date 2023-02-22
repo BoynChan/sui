@@ -59,14 +59,31 @@ macro_rules! exit_main {
     };
 }
 
+
+#[derive(
+    Eq, PartialEq, Clone, Debug, Serialize, Deserialize, Error, Hash, AsRefStr, IntoStaticStr,
+)]
+pub enum TransactionInputObjectsError {
+    #[error("Mutable object {object_id} cannot appear more than one in one transaction.")]
+    MutableObjectUsedMoreThanOnce { object_id: ObjectID },
+    #[error("Wrong number of parameters for the transaction.")]
+    ObjectInputArityViolation,
+}
+
+#[inline]
+pub fn input_error(error: TransactionInputObjectsError) -> SuiError {
+    SuiError::TransactionInputObjectsError { error }
+}
+
 /// Custom error type for Sui.
 #[derive(
     Eq, PartialEq, Clone, Debug, Serialize, Deserialize, Error, Hash, AsRefStr, IntoStaticStr,
 )]
 pub enum SuiError {
-    // Object misuse issues
-    #[error("Error checking transaction input objects: {:?}", errors)]
-    TransactionInputObjectsErrors { errors: Vec<SuiError> },
+    /// FIXMe should this just be a input error so also include gas stuff?
+    #[error("Error checking transaction input objects: {:?}", error)]
+    // TransactionInputObjectsErrors { errors: Vec<SuiError> },
+    TransactionInputObjectsError { error: TransactionInputObjectsError },
     #[error("Attempt to transfer an object that's not owned.")]
     TransferUnownedError,
     #[error("Attempt to transfer an object that does not have public transfer. Object transfer must be done instead using a distinct Move function call.")]
@@ -391,8 +408,7 @@ pub enum SuiError {
     BadObjectType { error: String },
     #[error("Move Execution failed")]
     MoveExecutionFailure,
-    #[error("Wrong number of parameters for the transaction.")]
-    ObjectInputArityViolation,
+
     #[error("Execution invariant violated")]
     ExecutionInvariantViolation,
     #[error("Authority did not return the information it is expected to have.")]
@@ -640,6 +656,7 @@ impl SuiError {
 
     // Collapse TransactionInputObjectsErrors into a single SuiError
     // if there's exactly one error.
+    // fIXME
     pub fn collapse_if_single_transaction_input_error(&self) -> Option<&SuiError> {
         match self {
             SuiError::TransactionInputObjectsErrors { errors } => {
@@ -676,6 +693,8 @@ impl SuiError {
 
             // Non retryable error
             SuiError::TransactionInputObjectsErrors { .. } => (false, true),
+            SuiError::InvalidBatchTransaction { .. } => (false, true),
+            SuiError::MutableObjectUsedMoreThanOnce { .. } => (false, true),
             SuiError::ExecutionError(..) => (false, true),
             SuiError::ByzantineAuthoritySuspicion { .. } => (false, true),
             SuiError::QuorumFailedToGetEffectsQuorumWhenProcessingTransaction { .. } => {
