@@ -1049,6 +1049,7 @@ impl AuthorityState {
         );
         let (gas_object_ref, input_objects) = transaction_input_checker::check_dev_inspect_input(
             &self.database,
+            protocol_config,
             &transaction_kind,
             gas_object,
         )
